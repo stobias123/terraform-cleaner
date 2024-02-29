@@ -125,9 +125,8 @@ func (m ModuleUsage) processUsage() error {
 			m.DataBlocks[key] = countPattern(bodyStr, key)
 		}
 		if blockType == "module" {
-			data_type := block.Labels()[0]
-			name := block.Labels()[1]
-			key := fmt.Sprintf("module.%s.%s", data_type, name)
+			name := block.Labels()[0]
+			key := fmt.Sprintf("module.%s", name)
 			m.Modules[name] = countPattern(bodyStr, key)
 		}
 		if blockType == "variable" {
