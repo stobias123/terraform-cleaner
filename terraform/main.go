@@ -14,19 +14,21 @@ import (
 )
 
 type ModuleUsage struct {
-	Path      string
-	Variables map[string]int
-	Locals    map[string]int
-	Modules   map[string]int
-	file      *hclwrite.File
+	Path       string
+	Variables  map[string]int
+	Locals     map[string]int
+	Modules    map[string]int
+	DataBlocks map[string]int
+	file       *hclwrite.File
 }
 
 func NewModuleUsage(path string) (*ModuleUsage, error) {
 	m := &ModuleUsage{
-		Path:      path,
-		Variables: map[string]int{},
-		Locals:    map[string]int{},
-		Modules:   map[string]int{},
+		Path:       path,
+		Variables:  map[string]int{},
+		Locals:     map[string]int{},
+		Modules:    map[string]int{},
+		DataBlocks: map[string]int{},
 	}
 
 	src, err := LoadTfModule(path)
@@ -116,6 +118,10 @@ func (m ModuleUsage) processUsage() error {
 	bodyStr := string(m.file.Bytes())
 	for _, block := range body.Blocks() {
 		blockType := block.Type()
+		if blockType == "data" {
+			name := block.Labels()[0]
+			m.DataBlocks[name] = countPattern(bodyStr, fmt.Sprintf(`data\.%s\W`, name))
+		}
 		if blockType == "module" {
 			name := block.Labels()[0]
 			source, _ := parseModuleSource(block.Body().GetAttribute("source"))
