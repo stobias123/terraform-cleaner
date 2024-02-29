@@ -119,13 +119,14 @@ func (m ModuleUsage) processUsage() error {
 	for _, block := range body.Blocks() {
 		blockType := block.Type()
 		if blockType == "data" {
-			name := block.Labels()[0]
-			m.DataBlocks[name] = countPattern(bodyStr, fmt.Sprintf(`data\.%s\W`, name))
+			data_type := block.Labels()[0]
+			name := block.Labels()[1]
+			key := fmt.Sprintf("data.%s.%s", data_type, name)
+			m.DataBlocks[key] = countPattern(bodyStr, key)
 		}
 		if blockType == "module" {
 			name := block.Labels()[0]
-			source, _ := parseModuleSource(block.Body().GetAttribute("source"))
-			m.Modules[source] = countPattern(bodyStr, fmt.Sprintf(`module\.%s`, name))
+			m.Modules[name] = countPattern(bodyStr, fmt.Sprintf(`module\.%s`, name))
 		}
 		if blockType == "variable" {
 			name := block.Labels()[0]

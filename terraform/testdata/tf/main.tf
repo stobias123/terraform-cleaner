@@ -15,6 +15,21 @@ module "test" {
     source = "./1"
 }
 
+data "null_data_source" "used" {
+  inputs = {
+    example = "example"
+  }
+}
+output "test" {
+  value = module.test.outputs.test
+}
+
+data "null_data_source" "not_used" {
+  inputs = {
+    example = "example"
+  }
+}
+
 output "test" {
   value = module.test.outputs.test
 }
