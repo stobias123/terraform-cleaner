@@ -7,6 +7,22 @@ terraform {
   }
 }
 
+module "test" {
+    source = "./1"
+}
+
+module "test" {
+    source = "./1"
+}
+
+output "test" {
+  value = module.test.outputs.test
+}
+
+output "test2" {
+  value = module.test.outputs.test
+}
+
 provider "null" {
   region = var.region
 }

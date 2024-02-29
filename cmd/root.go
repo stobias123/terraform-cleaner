@@ -40,7 +40,7 @@ func rootCmdExec(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return err
 		}
-		err = moduleUsage.Display(dType, fUnusedOnly)
+		err = moduleUsage.DisplayUnusedSimple(dType, fUnusedOnly)
 		if err != nil {
 			return err
 		}

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/hashicorp/hcl/v2"
+	"github.com/hashicorp/hcl/v2/hclsyntax"
 	"github.com/hashicorp/hcl/v2/hclwrite"
 	log "github.com/sirupsen/logrus"
 	"io/fs"
@@ -16,6 +17,7 @@ type ModuleUsage struct {
 	Path      string
 	Variables map[string]int
 	Locals    map[string]int
+	Modules   map[string]int
 	file      *hclwrite.File
 }
 
@@ -24,6 +26,7 @@ func NewModuleUsage(path string) (*ModuleUsage, error) {
 		Path:      path,
 		Variables: map[string]int{},
 		Locals:    map[string]int{},
+		Modules:   map[string]int{},
 	}
 
 	src, err := LoadTfModule(path)
@@ -87,11 +90,37 @@ func LoadTfModule(path string) ([]byte, error) {
 	return out, nil
 }
 
+// parseModuleSource parses module source and returns module name and version.
+func parseModuleSource(a *hclwrite.Attribute) (string, string) {
+	var moduleSourceRegexp = regexp.MustCompile(`(.+)\?ref=v([0-9]+(\.[0-9]+)*(-.*)*)`)
+	tokens := a.Expr().BuildTokens(nil)
+	if len(tokens) == 3 &&
+		tokens[0].Type == hclsyntax.TokenOQuote &&
+		tokens[1].Type == hclsyntax.TokenQuotedLit &&
+		tokens[2].Type == hclsyntax.TokenCQuote {
+		source := string(tokens[1].Bytes)
+		matched := moduleSourceRegexp.FindStringSubmatch(source)
+		if len(matched) == 0 {
+			// no version number
+			return source, ""
+		}
+		name := matched[1]
+		version := matched[2]
+		return name, version
+	}
+	return "", ""
+}
+
 func (m ModuleUsage) processUsage() error {
 	body := m.file.Body()
 	bodyStr := string(m.file.Bytes())
 	for _, block := range body.Blocks() {
 		blockType := block.Type()
+		if blockType == "module" {
+			name := block.Labels()[0]
+			source, _ := parseModuleSource(block.Body().GetAttribute("source"))
+			m.Modules[source] = countPattern(bodyStr, fmt.Sprintf(`module\.%s`, name))
+		}
 		if blockType == "variable" {
 			name := block.Labels()[0]
 			m.Variables[name] = countPattern(bodyStr, fmt.Sprintf(`var\.%s\W`, name))
@@ -139,9 +168,32 @@ func filterUnusedOnly(items map[string]int) map[string]int {
 	return items
 }
 
+func (m ModuleUsage) DisplayUnusedSimple(dType DisplayType, unusedOnly bool) error {
+	locals := filterUnusedOnly(m.Locals)
+	variables := filterUnusedOnly(m.Variables)
+	modules := filterUnusedOnly(m.Modules)
+
+	fmt.Printf("\n \U0001F680 Variables: %s\n", m.Path)
+	for name, count := range variables {
+		fmt.Printf("Variable %s used %d times\n", name, count)
+	}
+
+	fmt.Printf("\n \U0001F680 Locals: %s\n", m.Path)
+	for name, count := range locals {
+		fmt.Printf("%s used %d times\n", name, count)
+	}
+
+	fmt.Printf("\n \U0001F680 Modules: %s\n", m.Path)
+	for name, count := range modules {
+		fmt.Printf("%s used %d times\n", name, count)
+	}
+	return nil
+}
+
 func (m ModuleUsage) Display(dType DisplayType, unusedOnly bool) error {
 	variables := map[string]int{}
 	locals := map[string]int{}
+	modules := map[string]int{}
 
 	switch dType {
 	case Locals:
@@ -172,6 +224,7 @@ func (m ModuleUsage) Display(dType DisplayType, unusedOnly bool) error {
 	if dType == All || dType == Variables {
 		if !unusedOnly || (unusedOnly && len(variables) > 0) {
 			fmt.Printf(" \U0001F449 %d variables found\n", len(variables))
+			fmt.Printf(" \U0001F449 %d modules found\n", len(modules))
 		}
 		for name, count := range variables {
 			fmt.Printf("%s : %d\n", name, count)
@@ -183,6 +236,10 @@ func (m ModuleUsage) Display(dType DisplayType, unusedOnly bool) error {
 			fmt.Printf("\U0001F449 %d locals found\n", len(locals))
 		}
 		for name, count := range locals {
+			fmt.Printf("%s : %d\n", name, count)
+		}
+
+		for name, count := range modules {
 			fmt.Printf("%s : %d\n", name, count)
 		}
 

@@ -25,8 +25,7 @@ func TestNewModuleUsage(t *testing.T) {
 
 		moduleUsage, err := NewModuleUsage(path)
 		assert.Equal(t, err, nil)
-		assert.Equal(t, 4, len(moduleUsage.Variables))
-		assert.Equal(t, 3, len(moduleUsage.Locals))
+		assert.Equal(t, 2, moduleUsage.Modules["./1"])
 
 		assert.Equal(t, 1, moduleUsage.Variables["name"])
 		assert.Equal(t, 1, moduleUsage.Variables["region"])
